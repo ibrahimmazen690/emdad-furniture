@@ -1,0 +1,29 @@
+# Render Blueprint — deploys EMDAD as one Docker web service with a persistent
+# disk for the SQLite database + audit log. Import via Render → "New" →
+# "Blueprint" and point it at this repo. Secrets (sync:false) are entered in the
+# Render dashboard, never committed.
+services:
+  - type: web
+    name: emdad-furniture
+    runtime: docker
+    plan: starter # NOTE: persistent disks require Starter+ (the free plan has no disk → SQLite would reset)
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ANTHROPIC_API_KEY
+        sync: false # set in dashboard
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASS_HASH
+        sync: false # generate with `npm run hash-password`, set in dashboard
+      - key: ADMIN_SESSION_SECRET
+        sync: false # set a long random value in dashboard
+      - key: DB_DIR
+        value: /data/db
+      - key: LOG_DIR
+        value: /data/logs
+    disk:
+      name: emdad-data
+      mountPath: /data
+      sizeGB: 1

@@ -1,0 +1,19 @@
+# Rebuilt or reinstalled inside the image
+node_modules
+dist
+
+# Local data — never ship these
+db
+logs
+*.pem
+
+# Secrets — provided as host environment variables, never baked into the image
+.env
+.env.*
+
+# Repo / tooling cruft
+.git
+.gitignore
+.claude
+*.md
+npm-debug.log*
