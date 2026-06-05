@@ -37,11 +37,13 @@ export default function CategoryCard({ category, index }) {
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.7, delay: index * 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
-      <div
+      <Link
         ref={cardRef}
+        to={`/collections?cat=${category.id}`}
+        aria-label={isAr && t.catNames[category.id] ? t.catNames[category.id] : category.title}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="group relative overflow-hidden cursor-pointer will-change-transform"
+        className="group relative block overflow-hidden cursor-pointer will-change-transform"
         style={{
           transition: 'transform 0.2s ease, box-shadow 0.4s ease',
           transformStyle: 'preserve-3d',
@@ -100,18 +102,15 @@ export default function CategoryCard({ category, index }) {
 
           {/* CTA */}
           <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
-            <Link
-              to={`/collections?cat=${category.id}`}
-              className="flex items-center gap-2 font-body text-xs tracking-[0.2em] uppercase text-white hover:text-yellow-400 transition-colors duration-300"
-            >
-              View Collection
+            <span className="flex items-center gap-2 font-body text-xs tracking-[0.2em] uppercase text-white group-hover:text-yellow-400 transition-colors duration-300">
+              {isAr ? 'عرض المجموعة' : 'View Collection'}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
-            </Link>
+            </span>
           </div>
         </div>
-      </div>
+      </Link>
     </motion.div>
   )
 }
