@@ -206,6 +206,15 @@ roomSize: Compact | Standard | Spacious
 style: Modern | Classic | Minimalist | Luxury | Contemporary | Traditional | Eclectic
 If image is not a room, set roomType to "Not a Room" and recommendations to [].`;
 
+// Appended to the analysis prompt when the visitor is browsing in Arabic, so the
+// AI's human-readable text comes back translated. Machine fields (categoryId and
+// the urgency/lightLevel/roomSize enums) stay as the English tokens the UI maps
+// on — translating them would break the badge colors and value mappings.
+const ANALYSIS_AR_DIRECTIVE = `
+
+LANGUAGE: The visitor is using the site in Arabic. Write EVERY human-readable text value in Modern Standard Arabic: "roomType", "style", every entry in "colorNames", "existingStrengths" and "opportunities", and for every recommendation its "categoryName", "reason" and "finishSuggestion", plus the "designerNote".
+Do NOT translate these machine fields — output them EXACTLY as the English tokens defined above: every "categoryId", and the enum values for "urgency" (essential | recommended | optional), "lightLevel" (Low | Medium | High) and "roomSize" (Compact | Standard | Spacious). Keep all JSON keys and hex color codes in English. Still reply with ONLY the JSON object.`;
+
 const EMDAD_SYSTEM = `You are Layla — the official AI assistant for EMDAD Wooden & Smart Furniture, a premium manufacturer in Azzarqa (Zarqa), Jordan, established 2023 with 160+ skilled professionals. You speak Arabic and English fluently, with warmth, brevity, and expertise.
 
 ABOUT EMDAD:
@@ -522,6 +531,44 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+// Pull the JSON object out of a Claude reply that may wrap it in prose or code
+// fences. Brace-matches (string-aware) from the first "{" so trailing text can't
+// corrupt the parse, and retries once with trailing commas stripped. Returns the
+// parsed object, or null if nothing valid could be recovered.
+function extractJson(raw) {
+  const start = raw.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0,
+    inStr = false,
+    esc = false,
+    end = -1;
+  for (let i = start; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+    } else if (ch === '"') inStr = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+  const candidate = end === -1 ? raw.slice(start) : raw.slice(start, end + 1);
+  const tryParse = (s) => {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return null;
+    }
+  };
+  return tryParse(candidate) || tryParse(candidate.replace(/,(\s*[}\]])/g, "$1"));
+}
+
 // Room analysis endpoint
 app.post("/api/analyze-room", async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -532,10 +579,12 @@ app.post("/api/analyze-room", async (req, res) => {
     });
   }
 
-  const { imageBase64, mediaType = "image/jpeg" } = req.body || {};
+  const { imageBase64, mediaType = "image/jpeg", lang = "en" } = req.body || {};
   if (!imageBase64) {
     return res.status(400).json({ error: "imageBase64 is required" });
   }
+  const promptText =
+    lang === "ar" ? ANALYSIS_PROMPT + ANALYSIS_AR_DIRECTIVE : ANALYSIS_PROMPT;
 
   try {
     console.log("[EMDAD] Sending image to Claude Vision API…");
@@ -548,7 +597,7 @@ app.post("/api/analyze-room", async (req, res) => {
       },
       body: JSON.stringify({
         model: "claude-opus-4-6",
-        max_tokens: 1500,
+        max_tokens: 2500, // Arabic responses run longer; headroom avoids truncated JSON
         messages: [
           {
             role: "user",
@@ -561,7 +610,7 @@ app.post("/api/analyze-room", async (req, res) => {
                   data: imageBase64,
                 },
               },
-              { type: "text", text: ANALYSIS_PROMPT },
+              { type: "text", text: promptText },
             ],
           },
         ],
@@ -578,17 +627,21 @@ app.post("/api/analyze-room", async (req, res) => {
 
     const data = await apiRes.json();
     const rawText = data.content?.[0]?.text || "";
+    if (data.stop_reason === "max_tokens") {
+      console.warn("[EMDAD] Analysis hit max_tokens — response may be truncated.");
+    }
     console.log("[EMDAD] Got response from Claude, extracting JSON…");
 
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("[EMDAD] No JSON in response:", rawText.slice(0, 300));
+    const analysis = extractJson(rawText);
+    if (!analysis) {
+      console.error(
+        "[EMDAD] Unparseable AI response (first 1800 chars):\n",
+        rawText.slice(0, 1800),
+      );
       return res
         .status(500)
         .json({ error: "Could not parse AI response. Please try again." });
     }
-
-    const analysis = JSON.parse(jsonMatch[0]);
     console.log(
       "[EMDAD] ✓ Analysis complete:",
       analysis.roomType,

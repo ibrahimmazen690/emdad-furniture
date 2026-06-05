@@ -237,7 +237,7 @@ export default function RoomAnalyzer() {
     }, 3500)
 
     try {
-      const result = await analyzeRoomImage(file)
+      const result = await analyzeRoomImage(file, isAr ? 'ar' : 'en')
       clearInterval(stepTimer.current)
       setAnalysis(result)
       setStatus('result')
@@ -247,7 +247,7 @@ export default function RoomAnalyzer() {
       setErrorMsg(err.message || 'Analysis failed. Please try again.')
       setStatus('error')
     }
-  }, [file])
+  }, [file, isAr])
 
   const handleReset = useCallback(() => {
     setFile(null)
