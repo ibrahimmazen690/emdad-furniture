@@ -437,16 +437,35 @@ export default function RoomAnalyzer() {
               )}
 
               {/* Recommendations */}
-              <div className="mb-4">
-                <p className="font-body text-[9px] tracking-[0.3em] uppercase mb-6" style={{ color:'#B8903C' }}>
-                  {isAr?`${(analysis.recommendations||[]).length} مجموعة موصى بها لغرفتك`:`${(analysis.recommendations||[]).length} EMDAD collections recommended for your room`}
-                </p>
-                <div className="space-y-4">
-                  {(analysis.recommendations || []).map((rec, i) => (
-                    <RecommendationCard key={rec.categoryId} rec={rec} index={i} isAr={isAr} />
-                  ))}
+              {(analysis.recommendations || []).length > 0 ? (
+                <div className="mb-4">
+                  <p className="font-body text-[9px] tracking-[0.3em] uppercase mb-6" style={{ color:'#B8903C' }}>
+                    {isAr?`${analysis.recommendations.length} مجموعة موصى بها لغرفتك`:`${analysis.recommendations.length} EMDAD collections recommended for your room`}
+                  </p>
+                  <div className="space-y-4">
+                    {analysis.recommendations.map((rec, i) => (
+                      <RecommendationCard key={rec.categoryId} rec={rec} index={i} isAr={isAr} />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Graceful fallback when the AI couldn't detect a room */
+                <div className="mb-4 p-8 text-center" style={{ background:'white', border:'1px solid rgba(184,144,60,0.18)' }}>
+                  <span className="text-4xl block mb-3">🛋️</span>
+                  <h3 className="font-display text-xl font-400 text-onyx mb-2">
+                    {isAr ? 'لم نتمكن من تحديد غرفة في هذه الصورة' : "We couldn't detect a room in this photo"}
+                  </h3>
+                  <p className="font-body text-sm text-charcoal/60 mb-6 max-w-md mx-auto leading-relaxed">
+                    {analysis.designerNote || (isAr
+                      ? 'جرّب رفع صورة أوضح وأوسع تُظهر الغرفة كاملة بإضاءة جيدة لنوصي لك بأنسب قطع إمداد.'
+                      : 'Try a clearer, wider photo that shows the whole room in good light, so we can match the best EMDAD pieces for your space.')}
+                  </p>
+                  <div className="flex flex-wrap gap-3 justify-center">
+                    <button onClick={handleReset} className="btn-gold">{isAr ? 'جرّب صورة أخرى' : 'Try another photo'}</button>
+                    <Link to="/collections" className="btn-dark">{isAr ? 'تصفّح كل المجموعات' : 'Browse all collections'}</Link>
+                  </div>
+                </div>
+              )}
 
               {/* Action CTAs */}
               <div className="mt-10 p-8 text-center" style={{ background:'#0D0B09', border:'1px solid rgba(184,144,60,0.15)' }}>
