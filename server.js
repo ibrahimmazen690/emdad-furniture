@@ -33,6 +33,22 @@ if (existsSync(envPath)) {
   }
 }
 
+// Strip any non-printable / non-ASCII characters and surrounding whitespace that
+// can sneak into secrets pasted via a host dashboard or clipboard. Secrets here
+// (API key, hash, hex secret, username) are always printable ASCII, so this is
+// safe — and it prevents a stray BOM (U+FEFF) from breaking the x-api-key HTTP
+// header with "Cannot convert argument to a ByteString".
+const cleanSecret = (s) => s.replace(/[^\x20-\x7E]/g, "").trim();
+for (const k of [
+  "ANTHROPIC_API_KEY",
+  "ADMIN_USER",
+  "ADMIN_PASS_HASH",
+  "ADMIN_SESSION_SECRET",
+  "ADMIN_PASS",
+]) {
+  if (process.env[k]) process.env[k] = cleanSecret(process.env[k]);
+}
+
 // ── Admin authentication ─────────────────────────────────────────────────────
 // Credentials live ONLY on the server (no VITE_ prefix → never sent to the
 // browser bundle). Auth is a stateless HMAC-signed token: the secret never
