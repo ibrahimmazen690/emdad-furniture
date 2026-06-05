@@ -72,8 +72,15 @@ function AvatarFace({ state, size = 120 }) {
         style={{ opacity: glowOp, transition: "opacity .3s" }}
       />
 
-      {/* Background */}
-      <circle cx="50" cy="50" r="47" fill="#0D0B09" />
+      {/* Background — soft radial gradient orb */}
+      <defs>
+        <radialGradient id="laylaOrb" cx="50%" cy="36%" r="72%">
+          <stop offset="0%" stopColor="#2a2216" />
+          <stop offset="55%" stopColor="#15110c" />
+          <stop offset="100%" stopColor="#0a0907" />
+        </radialGradient>
+      </defs>
+      <circle cx="50" cy="50" r="47" fill="url(#laylaOrb)" />
 
       {/* Gold border */}
       <circle
@@ -477,6 +484,8 @@ export default function VoiceAvatar() {
   const labels = STATUS_LABELS[voiceLang];
   const chips = CHIPS[voiceLang];
   const isActive = state === "listening" || state === "speaking";
+  // Shrink the big avatar once a conversation starts, to give the chat room.
+  const compact = history.length > 0;
 
   return (
     <>
@@ -488,12 +497,13 @@ export default function VoiceAvatar() {
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-6 left-6 z-50 flex items-center justify-center"
         style={{
-          width: 64,
-          height: 64,
+          width: 70,
+          height: 70,
           borderRadius: "50%",
-          background: "#0D0B09",
-          border: "1.5px solid #B8903C",
-          boxShadow: "0 8px 32px rgba(184,144,60,0.35)",
+          background: "radial-gradient(circle at 50% 30%, #1b1610, #0D0B09)",
+          border: "2px solid #B8903C",
+          boxShadow:
+            "0 10px 38px rgba(184,144,60,0.42), inset 0 1px 1px rgba(255,255,255,0.08)",
           position: "fixed",
         }}
         aria-label="Open EMDAD Voice Advisor"
@@ -523,46 +533,61 @@ export default function VoiceAvatar() {
             transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="fixed z-50"
             style={{
-              bottom: 90,
+              bottom: 96,
               left: 24,
-              width: 360,
-              maxWidth: "calc(100vw - 48px)",
-              maxHeight: "70vh",
-              background: "#0D0B09",
-              border: "1px solid rgba(184,144,60,0.25)",
-              borderRadius: 4,
+              width: 408,
+              maxWidth: "calc(100vw - 32px)",
+              maxHeight: "84vh",
+              minHeight: 520,
+              background: "linear-gradient(180deg,#15120E 0%,#0D0B09 60%)",
+              border: "1px solid rgba(184,144,60,0.28)",
+              borderRadius: 24,
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
-              boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+              boxShadow:
+                "0 30px 90px rgba(0,0,0,0.66), 0 0 0 1px rgba(184,144,60,0.05)",
             }}
             dir={voiceLang === "ar" ? "rtl" : "ltr"}
           >
             {/* ── Header ─────────────────────────────────────────────────── */}
             <div
-              className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+              className="flex items-center justify-between px-4 py-3.5 flex-shrink-0"
               style={{
                 borderBottom: "1px solid rgba(184,144,60,0.12)",
-                background: "rgba(28,25,23,0.9)",
+                background: "rgba(20,17,14,0.6)",
               }}
             >
               <div className="flex items-center gap-3">
                 <div
-                  className="w-2 h-2 rounded-full animate-pulse"
                   style={{
-                    background: state === "idle" ? "#3B6D11" : "#B8903C",
+                    width: 42,
+                    height: 42,
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    boxShadow: "0 0 0 1.5px rgba(184,144,60,0.45)",
                   }}
-                />
-                <span className="font-body text-xs font-600 text-white tracking-wide">
-                  {voiceLang === "ar"
-                    ? "ليلى — مساعدة إمداد"
-                    : "Layla — EMDAD Advisor"}
-                </span>
+                >
+                  <AvatarFace state={state} size={42} />
+                </div>
+                <div className="leading-tight">
+                  <p className="font-display text-base font-500 text-white">
+                    {voiceLang === "ar" ? "ليلى" : "Layla"}
+                  </p>
+                  <p className="flex items-center gap-1.5 font-body text-[10px] text-white/45 mt-0.5">
+                    <span
+                      className="w-1.5 h-1.5 rounded-full animate-pulse"
+                      style={{ background: state === "idle" ? "#3B6D11" : "#B8903C" }}
+                    />
+                    {voiceLang === "ar" ? "مساعدة الأثاث الذكية" : "AI Furniture Advisor"}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {/* Language toggle */}
                 <div
-                  className="flex rounded-sm overflow-hidden"
+                  className="flex rounded-full overflow-hidden"
                   style={{ border: "1px solid rgba(184,144,60,0.3)" }}
                 >
                   {["en", "ar"].map((l) => (
@@ -583,7 +608,7 @@ export default function VoiceAvatar() {
                 {/* Close */}
                 <button
                   onClick={() => setOpen(false)}
-                  className="w-6 h-6 flex items-center justify-center text-white/40 hover:text-white/70 transition-colors"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/5 transition-colors"
                 >
                   <svg
                     className="w-4 h-4"
@@ -604,23 +629,46 @@ export default function VoiceAvatar() {
 
             {/* ── Avatar + Status ─────────────────────────────────────────── */}
             <div
-              className="flex flex-col items-center py-6 flex-shrink-0"
-              style={{ background: "rgba(13,11,9,0.8)" }}
+              className={`flex flex-col items-center flex-shrink-0 ${compact ? "pt-3 pb-2" : "pt-7 pb-5"}`}
+              style={{
+                background:
+                  "radial-gradient(120% 90% at 50% 0%, rgba(184,144,60,0.13) 0%, rgba(13,11,9,0) 62%)",
+              }}
             >
-              <div className="relative" style={{ width: 120, height: 120 }}>
-                <AvatarFace state={state} size={120} />
+              <div
+                className="relative flex items-center justify-center"
+                style={{
+                  width: compact ? 78 : 132,
+                  height: compact ? 78 : 132,
+                  transition: "width .3s, height .3s",
+                }}
+              >
+                <div
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(184,144,60,0.30) 0%, rgba(184,144,60,0) 70%)",
+                    filter: "blur(8px)",
+                    opacity:
+                      state === "speaking" || state === "listening" ? 1 : 0.45,
+                    transition: "opacity .3s",
+                  }}
+                />
+                <AvatarFace state={state} size={compact ? 72 : 124} />
                 {state === "listening" && <ListeningRings />}
               </div>
 
-              <p
-                className="font-body text-xs mt-4 transition-all duration-300"
-                style={{
-                  color:
-                    state === "error" ? "#E24B4A" : "rgba(255,255,255,0.45)",
-                }}
-              >
-                {labels[state]}
-              </p>
+              {(!compact || state !== "idle") && (
+                <p
+                  className="font-body text-xs mt-3 transition-all duration-300"
+                  style={{
+                    color:
+                      state === "error" ? "#E24B4A" : "rgba(255,255,255,0.45)",
+                  }}
+                >
+                  {labels[state]}
+                </p>
+              )}
 
               {/* Live transcript */}
               {transcript && state !== "idle" && (
@@ -648,32 +696,52 @@ export default function VoiceAvatar() {
                   scrollbarColor: "rgba(184,144,60,0.2) transparent",
                 }}
               >
-                {history.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex ${msg.role === "user" ? (voiceLang === "ar" ? "justify-start" : "justify-end") : voiceLang === "ar" ? "justify-end" : "justify-start"}`}
-                  >
+                {history.map((msg, i) => {
+                  const isUser = msg.role === "user";
+                  const alignEnd =
+                    isUser ? voiceLang !== "ar" : voiceLang === "ar";
+                  return (
                     <div
-                      className="max-w-[85%] px-3 py-2 text-xs font-body leading-relaxed"
-                      style={
-                        msg.role === "assistant"
-                          ? {
-                              background: "rgba(255,255,255,0.05)",
-                              color: "rgba(255,255,255,0.85)",
-                              border: "1px solid rgba(255,255,255,0.06)",
-                              borderRadius: 2,
-                            }
-                          : {
-                              background: "rgba(184,144,60,0.75)",
-                              color: "white",
-                              borderRadius: 2,
-                            }
-                      }
+                      key={i}
+                      className={`flex items-end gap-2 ${alignEnd ? "justify-end" : "justify-start"}`}
                     >
-                      {msg.content}
+                      {!isUser && (
+                        <div
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: "50%",
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            boxShadow: "0 0 0 1px rgba(184,144,60,0.4)",
+                          }}
+                        >
+                          <AvatarFace state="idle" size={28} />
+                        </div>
+                      )}
+                      <div
+                        className="max-w-[80%] px-4 py-2.5 text-[13px] font-body leading-relaxed"
+                        style={
+                          isUser
+                            ? {
+                                background:
+                                  "linear-gradient(135deg,#B8903C,#CFA158)",
+                                color: "white",
+                                borderRadius: 18,
+                              }
+                            : {
+                                background: "rgba(255,255,255,0.06)",
+                                color: "rgba(255,255,255,0.9)",
+                                border: "1px solid rgba(255,255,255,0.07)",
+                                borderRadius: 18,
+                              }
+                        }
+                      >
+                        {msg.content}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {state === "thinking" && (
                   <div
                     className={`flex ${voiceLang === "ar" ? "justify-end" : "justify-start"}`}
@@ -711,10 +779,10 @@ export default function VoiceAvatar() {
                   <button
                     key={chip}
                     onClick={() => processMessage(chip)}
-                    className="px-3 py-1.5 font-body text-[10px] text-yellow-400/70 hover:text-yellow-300 hover:border-yellow-500/40 transition-all duration-200"
+                    className="px-3.5 py-2 rounded-full font-body text-[11px] text-yellow-400/80 hover:text-yellow-200 hover:-translate-y-0.5 transition-all duration-200"
                     style={{
-                      border: "1px solid rgba(184,144,60,0.25)",
-                      background: "rgba(184,144,60,0.04)",
+                      border: "1px solid rgba(184,144,60,0.28)",
+                      background: "rgba(184,144,60,0.05)",
                     }}
                   >
                     {chip}
@@ -729,28 +797,30 @@ export default function VoiceAvatar() {
               style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
             >
               {/* Text input fallback */}
-              <div className="flex gap-2">
+              <div
+                className="flex items-center gap-2 pe-1.5 ps-4 py-1.5"
+                style={{
+                  border: `1px solid ${textInput ? "rgba(184,144,60,0.5)" : "rgba(255,255,255,0.1)"}`,
+                  borderRadius: 9999,
+                  background: "rgba(255,255,255,0.03)",
+                  transition: "border-color .2s",
+                }}
+              >
                 <input
                   type="text"
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleTextSend()}
                   placeholder={
-                    voiceLang === "ar"
-                      ? "أو اكتب سؤالك هنا..."
-                      : "Or type your question…"
+                    voiceLang === "ar" ? "اكتب رسالتك…" : "Message Layla…"
                   }
-                  className="flex-1 bg-transparent text-xs text-white placeholder:text-white/20 outline-none px-3 py-2"
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderColor: textInput ? "rgba(184,144,60,0.5)" : undefined,
-                  }}
+                  className="flex-1 bg-transparent text-[13px] text-white placeholder:text-white/25 outline-none"
                   dir={voiceLang === "ar" ? "rtl" : "ltr"}
                 />
                 <button
                   onClick={handleTextSend}
                   disabled={!textInput.trim()}
-                  className="w-8 h-8 flex items-center justify-center flex-shrink-0 disabled:opacity-25 transition-opacity"
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-25 transition-all hover:scale-105"
                   style={{
                     background: "linear-gradient(135deg,#B8903C,#D4AC5A)",
                   }}
@@ -798,6 +868,7 @@ export default function VoiceAvatar() {
                             ? "1px solid rgba(184,144,60,0.4)"
                             : "none",
                       color: state === "speaking" ? "#D4AC5A" : "white",
+                      borderRadius: 16,
                     }}
                     disabled={state === "thinking"}
                   >
@@ -887,7 +958,7 @@ export default function VoiceAvatar() {
                       setTranscript("");
                       setResponse("");
                     }}
-                    className="w-10 h-10 flex items-center justify-center text-white/25 hover:text-white/50 transition-colors flex-shrink-0"
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-white/25 hover:text-white/50 hover:bg-white/5 transition-colors flex-shrink-0"
                     style={{ border: "1px solid rgba(255,255,255,0.08)" }}
                     title="Clear conversation"
                   >
