@@ -3,6 +3,17 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLang } from "../context/LanguageContext";
 
+// Voice-name heuristics for picking a FEMALE Arabic voice (Layla is a woman).
+// Many Windows machines only ship "Microsoft Naayf" (male, ar-SA); when that's
+// all that's available we detect it and raise the pitch so she still sounds female.
+const AR_FEMALE_HINTS = [
+  "hoda", "salma", "amina", "laila", "layla", "sara", "hala", "zariyah",
+  "fatima", "noura", "maha", "aisha", "yasmin", "rana",
+];
+const AR_MALE_HINTS = ["naayf", "nayef", "hamed", "tarik", "tariq", "maged"];
+const hasHint = (v, hints) =>
+  hints.some((n) => (v?.name || "").toLowerCase().includes(n));
+
 // ── Claude chat API call ──────────────────────────────────────────────────────
 async function askClaude(messages) {
   const res = await fetch("/api/chat", {
@@ -286,12 +297,17 @@ export default function VoiceAvatar() {
     (lang) => {
       if (!voices.length) return null;
       if (lang === "ar") {
+        const ar = voices.filter(
+          (v) =>
+            (v.lang || "").toLowerCase().startsWith("ar") ||
+            (v.name || "").toLowerCase().includes("arab"),
+        );
+        // Prefer a known female Arabic voice, then any voice not known to be
+        // male, then any Arabic voice, then anything available.
         return (
-          voices.find((v) => v.lang === "ar-JO") ||
-          voices.find((v) => v.lang === "ar-SA") ||
-          voices.find((v) => v.lang?.startsWith("ar")) ||
-          voices.find((v) => v.lang?.includes("ar")) ||
-          voices.find((v) => v.name?.toLowerCase().includes("arab")) ||
+          ar.find((v) => hasHint(v, AR_FEMALE_HINTS)) ||
+          ar.find((v) => !hasHint(v, AR_MALE_HINTS)) ||
+          ar[0] ||
           voices[0] ||
           null
         );
@@ -332,18 +348,21 @@ export default function VoiceAvatar() {
 
       const utt = new SpeechSynthesisUtterance(text);
       utt.lang = lang === "ar" ? "ar-SA" : "en-US";
-      utt.rate = lang === "ar" ? 0.88 : 0.92;
-      utt.pitch = 1.05;
 
+      // Pick the voice first — we need it to tune pitch/rate.
       let voice = getVoice(lang);
+      if (!voice && voices.length) voice = voices[0];
       if (voice) {
         utt.voice = voice;
         utt.lang = voice.lang || utt.lang;
-      } else if (voices.length) {
-        voice = voices[0];
-        utt.voice = voice;
-        utt.lang = voice.lang || utt.lang;
       }
+
+      // Arabic: speak at a normal pace (not the old slow 0.88). If the device
+      // only offers a male Arabic voice (e.g. Microsoft Naayf), raise the pitch
+      // so Layla still sounds female.
+      const isMaleAr = lang === "ar" && hasHint(voice, AR_MALE_HINTS);
+      utt.rate = lang === "ar" ? 1.0 : 0.95;
+      utt.pitch = lang === "ar" ? (isMaleAr ? 1.5 : 1.15) : 1.05;
 
       utt.onstart = () => setState("speaking");
       utt.onend = () => setState("idle");
