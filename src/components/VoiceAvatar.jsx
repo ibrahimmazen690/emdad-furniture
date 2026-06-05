@@ -315,6 +315,10 @@ export default function VoiceAvatar() {
       .replace(/<3/g, "")
       .replace(/[#*_`~]/g, "")
       .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "")
+      // Say brand/acronyms as words, not spelled-out letters (TTS reads
+      // all-caps as initialisms, so "EMDAD" → "E-M-D-A-D"). Display text is
+      // unaffected — this only changes what the speech engine receives.
+      .replace(/\bEMDAD\b/g, "Emdad")
       .replace(/\s{2,}/g, " ")
       .trim();
   }, []);
