@@ -206,9 +206,108 @@ roomSize: Compact | Standard | Spacious
 style: Modern | Classic | Minimalist | Luxury | Contemporary | Traditional | Eclectic
 If image is not a room, set roomType to "Not a Room" and recommendations to [].`;
 
-const EMDAD_SYSTEM = `You are Layla — EMDAD's official AI voice advisor. You speak Arabic and English fluently and represent EMDAD Wooden & Smart Furniture with warmth, expertise, and professionalism.
+const EMDAD_SYSTEM = `You are Layla — the official AI assistant for EMDAD Wooden & Smart Furniture, a premium manufacturer in Azzarqa (Zarqa), Jordan, established 2023 with 160+ skilled professionals. You speak Arabic and English fluently, with warmth, brevity, and expertise.
 
-When answering the user, do not include hashtags, emojis, emoticons, or markdown formatting. Reply in the same language as the user's message. If the user writes in Arabic, answer in Arabic. If the user writes in English, answer in English. Provide only natural spoken text suitable for voice playback.`;
+ABOUT EMDAD:
+- Showroom & factory: Hay AL-Jundy, Army Street, Azzarqa — Jordan. Phone +962-779989944. Email Info@emdadgrp.com. Website emdadgrp.com.
+- Services: custom furniture manufacturing, smart furniture (IoT, sensor lighting, automation), exhibition booth construction, event infrastructure, electrical & technical services, carpeting & flooring, and government/institutional projects.
+- Pricing is custom per project — there are NO fixed public prices. For an estimate, guide them to the quote tool or submit a quote request for them. Never invent prices.
+- The showroom is visited by appointment and is CLOSED on Fridays.
+
+FURNITURE CATEGORIES (piece counts) and their page paths:
+- Master Bedrooms (61) — /collections?cat=master-bedrooms
+- Single Bedrooms (33) — /collections?cat=single-bedrooms
+- Living Rooms (23) — /collections?cat=living-rooms
+- Guest Rooms / Majlis (21) — /collections?cat=guest-room
+- Kitchens (19) — /collections?cat=kitchens
+- Dining Tables (8) — /collections?cat=dining-table
+- Dressing Rooms (5) — /collections?cat=dressing-room
+- Storage Rooms (2) — /collections?cat=storage-room
+- Outdoor & Landscape (8) — /collections?cat=landscape
+- TV Units (10) — /collections?cat=tv-units
+
+KEY PAGES: home '/', all collections '/collections', about '/about', contact '/contact', quote estimator '/quote', book a showroom visit '/appointment', AR preview '/ar', AI room analyzer '/analyze', wishlist '/wishlist', client portal '/portal'.
+
+YOU CAN TAKE ACTIONS with tools:
+- navigate: open a page for the user (e.g., they ask to see a category, book a visit, or get a quote). Give a short spoken confirmation like "Taking you to our kitchens now."
+- book_appointment: book a showroom visit. First collect name, phone, and a desired date and time (remember: closed Fridays). Confirm the details, then book.
+- submit_quote: send a quote request. Collect name and phone plus what they're interested in.
+- create_inquiry: send a message/inquiry to the team. Collect name, phone, and the message.
+After any booking/quote/inquiry succeeds, briefly confirm the EMDAD team has received it and will follow up.
+
+STYLE: Your replies are spoken aloud — keep them short and natural, usually 1-3 sentences. No markdown, hashtags, emojis, or emoticons. Reply in the SAME language as the user (Arabic → Arabic, English → English). If you lack a fact, offer to connect them with the team rather than guessing.`;
+
+// Tools Layla can call (Claude function-calling). navigate is handled on the
+// client; the others write to the same SQLite tables as the public forms, so
+// they show up in the admin portal.
+const LAYLA_TOOLS = [
+  {
+    name: "navigate",
+    description:
+      "Open a page of the EMDAD website for the user (category gallery, appointment page, quote tool, etc.).",
+    input_schema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description:
+            "Site path, e.g. '/collections?cat=kitchens', '/appointment', '/quote', '/analyze', '/about', '/contact', '/wishlist', or '/'.",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "book_appointment",
+    description:
+      "Book a showroom visit. Only call once you have the customer's name, phone, and a desired date and time (showroom is closed Fridays).",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        phone: { type: "string" },
+        date: { type: "string", description: "e.g. '2026-07-01' or the date the customer stated" },
+        time: { type: "string", description: "e.g. '11:00' or '2:00 PM'" },
+        type: { type: "string", description: "visit purpose / project type (optional)" },
+        email: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["name", "phone", "date", "time"],
+    },
+  },
+  {
+    name: "submit_quote",
+    description: "Send a quote request to the EMDAD team.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        phone: { type: "string" },
+        projectType: { type: "string", description: "Residential / Commercial / Exhibition / Government" },
+        rooms: { type: "array", items: { type: "string" } },
+        tier: { type: "string", description: "Standard / Premium / Luxury" },
+        email: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["name", "phone"],
+    },
+  },
+  {
+    name: "create_inquiry",
+    description: "Send a product inquiry or general message to the EMDAD team.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        phone: { type: "string" },
+        productTitle: { type: "string" },
+        message: { type: "string" },
+        email: { type: "string" },
+      },
+      required: ["name", "phone", "message"],
+    },
+  },
+];
 
 async function callClaude(body) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -370,14 +469,53 @@ app.post("/api/chat", async (req, res) => {
   }
 
   try {
-    const data = await callClaude({
-      model: "claude-opus-4-6",
-      max_tokens: 300,
-      system: EMDAD_SYSTEM,
-      messages,
+    // Work on a copy so we can append tool-use / tool-result turns.
+    const convo = messages.map((m) => ({ role: m.role, content: m.content }));
+    let pendingAction = null;
+
+    // Agentic loop: let Layla call tools (book, quote, inquiry, navigate) and
+    // feed the results back until she produces a final spoken reply.
+    for (let round = 0; round < 5; round++) {
+      const data = await callClaude({
+        model: "claude-opus-4-6",
+        max_tokens: 600,
+        system: EMDAD_SYSTEM,
+        tools: LAYLA_TOOLS,
+        messages: convo,
+      });
+
+      const blocks = Array.isArray(data.content) ? data.content : [];
+      const toolUses = blocks.filter((b) => b.type === "tool_use");
+
+      if (data.stop_reason === "tool_use" && toolUses.length) {
+        convo.push({ role: "assistant", content: blocks });
+        const toolResults = [];
+        for (const tu of toolUses) {
+          const out = await runLaylaTool(tu.name, tu.input || {}, req);
+          if (out.action) pendingAction = out.action;
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: tu.id,
+            content: out.content,
+          });
+        }
+        convo.push({ role: "user", content: toolResults });
+        continue; // ask Claude again with the tool results
+      }
+
+      const reply = blocks
+        .filter((b) => b.type === "text")
+        .map((b) => b.text)
+        .join(" ")
+        .trim();
+      return res.json({ reply, action: pendingAction });
+    }
+
+    // Safety valve if the model kept calling tools without ever finishing.
+    return res.json({
+      reply: "Done — the EMDAD team has your details and will follow up shortly.",
+      action: pendingAction,
     });
-    const reply = data.content?.[0]?.text || "";
-    res.json({ reply });
   } catch (err) {
     console.error("[EMDAD] Chat error:", err.message);
     res.status(500).json({ error: err.message || "Unexpected server error" });
@@ -654,6 +792,134 @@ const getAllOrders = async () => {
 };
 
 const clip = (v, max) => String(v ?? "").trim().slice(0, max);
+
+// ── Layla tool executor ──────────────────────────────────────────────────────
+// Runs a tool Claude asked for during a chat turn. The booking/quote/inquiry
+// tools write to the SAME tables as the public forms, so everything Layla
+// captures lands in the admin portal. `navigate` returns an action the client
+// performs (react-router). Returns { content, action? } — content is the
+// natural-language tool_result fed back to Claude.
+async function runLaylaTool(name, input, req) {
+  try {
+    if (name === "navigate") {
+      const path = clip(input.path, 200) || "/";
+      const safe = path.startsWith("/") ? path : `/${path}`;
+      return {
+        content: `Navigated the user to ${safe}.`,
+        action: { type: "navigate", path: safe },
+      };
+    }
+
+    if (name === "book_appointment") {
+      const nm = clip(input.name, 120);
+      const phone = clip(input.phone, 40);
+      const date = clip(input.date, 40);
+      const time = clip(input.time, 40);
+      if (!nm || !phone || !date || !time) {
+        return {
+          content:
+            "Not booked — still missing one of: name, phone, date, time. Ask the customer for the missing detail before booking.",
+        };
+      }
+      const appt = {
+        ref: `EMD-${String(Date.now()).slice(-6)}`,
+        name: nm,
+        phone,
+        email: clip(input.email, 160),
+        company: "",
+        type: clip(input.type, 80) || "Showroom visit",
+        notes: clip(input.notes, 2000),
+        date,
+        dateLabel: date,
+        time,
+      };
+      const id = `APT-${Date.now()}`;
+      await db.run(
+        "INSERT INTO appointments (id, data, status, created_at) VALUES (?, ?, 'new', ?)",
+        id,
+        JSON.stringify(appt),
+        new Date().toISOString(),
+      );
+      audit("appointment_created", req, { id, via: "layla", date, time });
+      return {
+        content: `Appointment booked. Reference ${appt.ref} for ${date} at ${time}. Confirm to the customer and mention the team will follow up.`,
+      };
+    }
+
+    if (name === "submit_quote") {
+      const nm = clip(input.name, 120);
+      const phone = clip(input.phone, 40);
+      if (!nm || !phone) {
+        return {
+          content:
+            "Not submitted — still missing the customer's name or phone. Ask for it before submitting the quote.",
+        };
+      }
+      const quote = {
+        name: nm,
+        phone,
+        email: clip(input.email, 160),
+        notes: clip(input.notes, 2000),
+        projectType: clip(input.projectType, 80),
+        rooms: Array.isArray(input.rooms)
+          ? input.rooms.map((r) => clip(r, 60)).slice(0, 30)
+          : clip(input.rooms, 400),
+        tier: clip(input.tier, 60),
+      };
+      const id = `QT-${Date.now()}`;
+      await db.run(
+        "INSERT INTO quotes (id, data, status, created_at) VALUES (?, ?, 'new', ?)",
+        id,
+        JSON.stringify(quote),
+        new Date().toISOString(),
+      );
+      audit("quote_created", req, { id, via: "layla" });
+      return {
+        content:
+          "Quote request submitted to the EMDAD team. Confirm to the customer that a tailored quote will follow.",
+      };
+    }
+
+    if (name === "create_inquiry") {
+      const nm = clip(input.name, 120);
+      const phone = clip(input.phone, 40);
+      const message = clip(input.message, 2000);
+      if (!nm || !phone || !message) {
+        return {
+          content:
+            "Not sent — still missing name, phone, or the message. Ask for the missing detail before sending.",
+        };
+      }
+      const order = {
+        name: nm,
+        phone,
+        email: clip(input.email, 160),
+        message,
+        productTitle: clip(input.productTitle, 200),
+        productImage: "",
+        category: "",
+        finish: "",
+      };
+      const id = `ORD-${Date.now()}`;
+      await db.run(
+        "INSERT INTO orders (id, data, status, created_at) VALUES (?, ?, 'new', ?)",
+        id,
+        JSON.stringify(order),
+        new Date().toISOString(),
+      );
+      audit("order_created", req, { id, via: "layla" });
+      return {
+        content:
+          "Inquiry sent to the EMDAD team. Confirm to the customer that they'll hear back shortly.",
+      };
+    }
+
+    return { content: `Unknown tool "${name}".` };
+  } catch (err) {
+    console.error("[EMDAD] Layla tool error:", err.message);
+    return { content: `The action failed: ${err.message}` };
+  }
+}
 
 // Public: a customer submits an inquiry from a product's detail view.
 app.post("/api/orders", async (req, res) => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLang } from "../context/LanguageContext";
 
@@ -15,6 +15,8 @@ const hasHint = (v, hints) =>
   hints.some((n) => (v?.name || "").toLowerCase().includes(n));
 
 // ── Claude chat API call ──────────────────────────────────────────────────────
+// Returns { reply, action } — action is e.g. { type: "navigate", path } when
+// Layla decided to open a page for the user.
 async function askClaude(messages) {
   const res = await fetch("/api/chat", {
     method: "POST",
@@ -23,7 +25,7 @@ async function askClaude(messages) {
   });
   if (!res.ok) throw new Error(`Chat error ${res.status}`);
   const data = await res.json();
-  return data.reply || "";
+  return { reply: data.reply || "", action: data.action || null };
 }
 
 // ── Animated SVG Avatar Face ──────────────────────────────────────────────────
@@ -245,6 +247,7 @@ const CHIPS = {
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function VoiceAvatar() {
   const { isAr } = useLang();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState("idle"); // idle|listening|thinking|speaking|error
   const [voiceLang, setVoiceLang] = useState(() => (isAr ? "ar" : "en"));
@@ -391,7 +394,7 @@ export default function VoiceAvatar() {
       const newHistory = [...history, { role: "user", content: userText }];
 
       try {
-        const reply = await askClaude(newHistory);
+        const { reply, action } = await askClaude(newHistory);
         const cleanReply = sanitizeSpeechText(reply);
         const updatedHistory = [
           ...newHistory,
@@ -400,7 +403,11 @@ export default function VoiceAvatar() {
         setHistory(updatedHistory.slice(-12)); // keep last 6 exchanges
         setResponse(cleanReply);
         const speakLang = /[\u0600-\u06FF]/.test(cleanReply) ? "ar" : voiceLang;
-        speak(cleanReply, speakLang);
+        if (cleanReply) speak(cleanReply, speakLang);
+        // Layla asked to open a page \u2014 perform the navigation (she keeps talking).
+        if (action?.type === "navigate" && action.path) {
+          navigate(action.path);
+        }
       } catch (err) {
         console.error("Chat error:", err);
         const errMsg =
@@ -411,7 +418,7 @@ export default function VoiceAvatar() {
         setState("error");
       }
     },
-    [history, voiceLang, speak],
+    [history, voiceLang, speak, navigate],
   );
 
   // ── Start voice recognition ──────────────────────────────────────────────────

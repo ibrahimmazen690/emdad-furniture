@@ -54,6 +54,14 @@ export default function Collections() {
     window.scrollTo({ top: 300, behavior: 'smooth' })
   }, [setSearchParams])
 
+  // Keep the active category in sync with the ?cat= URL param. This lets other
+  // parts of the app (e.g. Layla navigating to /collections?cat=kitchens while
+  // the user is already on this page) switch the gallery without a remount.
+  const catParam = searchParams.get('cat') || 'all'
+  useEffect(() => {
+    setActiveFilter((prev) => (prev !== catParam ? catParam : prev))
+  }, [catParam])
+
   const totalCount = activeCat ? activeCat.count : categories.reduce((s,c)=>s+c.count,0)
   const getCategoryName = (id) => isAr ? (t.catNames[id] || id) : categories.find(c=>c.id===id)?.title || id
 
