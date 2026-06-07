@@ -92,27 +92,33 @@ export default function Wishlist() {
                     className="group relative overflow-hidden"
                     style={{ aspectRatio: "3/4" }}
                   >
-                    <img
-                      src={img.src}
-                      alt={img.alt}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      style={{ filter: "brightness(0.85)" }}
-                    />
-                    <div
-                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                      style={{ background: "rgba(13,11,9,0.5)" }}
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                      <p className="font-body text-[9px] tracking-wide uppercase text-yellow-400">
-                        {isAr ? "محفوظ" : "Saved"}
-                      </p>
-                      <p className="font-display text-xs text-white">
-                        {img.title || img.alt}
-                      </p>
-                    </div>
+                    <Link
+                      to={`/product?src=${encodeURIComponent(img.src)}`}
+                      className="absolute inset-0 block cursor-pointer"
+                      aria-label={img.title || img.alt}
+                    >
+                      <img
+                        src={img.src}
+                        alt={img.alt}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        style={{ filter: "brightness(0.85)" }}
+                      />
+                      <div
+                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        style={{ background: "rgba(13,11,9,0.5)" }}
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                        <p className="font-body text-[9px] tracking-wide uppercase text-yellow-400">
+                          {isAr ? "محفوظ" : "Saved"}
+                        </p>
+                        <p className="font-display text-xs text-white">
+                          {img.title || img.alt}
+                        </p>
+                      </div>
+                    </Link>
                     <button
                       onClick={() => toggle(img)}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white transition-all duration-300 hover:scale-110"
+                      className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center text-white transition-all duration-300 hover:scale-110"
                       style={{ background: "rgba(13,11,9,0.7)" }}
                     >
                       <span className="text-base" style={{ color: "#F0D483" }}>

@@ -8,6 +8,7 @@ import LoadingScreen from "./components/LoadingScreen";
 import VoiceAvatar from "./components/VoiceAvatar";
 import Home from "./pages/Home";
 import Collections from "./pages/Collections";
+import ProductDetail from "./pages/ProductDetail";
 import About from "./pages/About";
 import ARPage from "./pages/AR";
 import Contact from "./pages/Contact";
@@ -105,6 +106,7 @@ function AppContent() {
               <Routes location={location}>
                 <Route path="/" element={<Home />} />
                 <Route path="/collections" element={<Collections />} />
+                <Route path="/product" element={<ProductDetail />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/ar" element={<ARPage />} />
                 <Route path="/contact" element={<Contact />} />

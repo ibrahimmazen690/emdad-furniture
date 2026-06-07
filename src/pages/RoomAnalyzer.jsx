@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLang } from '../context/LanguageContext'
 import { analyzeRoomImage, CATEGORY_META, URGENCY_COLORS } from '../utils/analyzeRoom'
+import { categories } from '../data/categories'
 
 // ── Loading steps ─────────────────────────────────────────────────────────────
 const STEPS_EN = [
@@ -50,10 +51,10 @@ function ColorRow({ palette, names }) {
 }
 
 // ── Recommendation card ────────────────────────────────────────────────────────
-function RecommendationCard({ rec, index, isAr }) {
+function RecommendationCard({ rec, index, isAr, imageOverride, linkOverride }) {
   const meta  = CATEGORY_META[rec.categoryId] || {}
   const badge = URGENCY_COLORS[rec.urgency]   || URGENCY_COLORS.recommended
-  const [imgSrc, setImgSrc] = useState(meta.coverImg || '/images/master-bedrooms/BED1.jpg')
+  const [imgSrc, setImgSrc] = useState(imageOverride || meta.coverImg || '/images/master-bedrooms/BED1.jpg')
 
   return (
     <motion.div initial={{ opacity:0, y:30 }} animate={{ opacity:1, y:0 }} transition={{ delay:index*0.12, duration:0.6, ease:[0.25,0.46,0.45,0.94] }}
@@ -103,8 +104,8 @@ function RecommendationCard({ rec, index, isAr }) {
           </div>
 
           <div className="flex gap-3 mt-5 pt-4" style={{ borderTop:'1px solid rgba(184,144,60,0.1)' }}>
-            <Link to={meta.link || '/collections'} className="btn-gold text-xs py-2.5 px-5">
-              {isAr?'عرض المجموعة':'View Collection'} →
+            <Link to={linkOverride || meta.link || '/collections'} className="btn-gold text-xs py-2.5 px-5">
+              {linkOverride ? (isAr?'عرض هذه القطعة':'View this piece') : (isAr?'عرض المجموعة':'View Collection')} →
             </Link>
             <Link to="/quote" className="btn-dark text-xs py-2.5 px-5">
               {isAr?'عرض سعر':'Get Quote'}
@@ -206,14 +207,17 @@ function LoadingView({ stepIndex, isAr }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function RoomAnalyzer() {
-  const { isAr } = useLang()
+  const { isAr, t } = useLang()
   const [file, setFile]         = useState(null)
   const [preview, setPreview]   = useState(null)
   const [status, setStatus]     = useState('idle')   // idle | analyzing | result | error
   const [stepIndex, setStepIndex] = useState(0)
   const [analysis, setAnalysis] = useState(null)
   const [errorMsg, setErrorMsg] = useState('')
+  const [chosenCat, setChosenCat] = useState('')     // '' = let AI decide across all
   const stepTimer = useRef(null)
+
+  const focusCat = categories.find((c) => c.id === chosenCat) || null
 
   const handleFile = useCallback((f) => {
     setFile(f)
@@ -237,7 +241,7 @@ export default function RoomAnalyzer() {
     }, 3500)
 
     try {
-      const result = await analyzeRoomImage(file, isAr ? 'ar' : 'en')
+      const result = await analyzeRoomImage(file, isAr ? 'ar' : 'en', chosenCat)
       clearInterval(stepTimer.current)
       setAnalysis(result)
       setStatus('result')
@@ -247,7 +251,7 @@ export default function RoomAnalyzer() {
       setErrorMsg(err.message || 'Analysis failed. Please try again.')
       setStatus('error')
     }
-  }, [file, isAr])
+  }, [file, isAr, chosenCat])
 
   const handleReset = useCallback(() => {
     setFile(null)
@@ -327,11 +331,35 @@ export default function RoomAnalyzer() {
                   <div>
                     <p className="font-body text-[9px] tracking-[0.3em] uppercase mb-3" style={{ color:'#B8903C' }}>{isAr?'صورتك جاهزة':'Your photo is ready'}</p>
                     <h3 className="font-display text-3xl font-300 text-onyx mb-3">{isAr?'ابدأ التحليل':'Start the analysis'}</h3>
-                    <p className="font-body text-sm text-charcoal/55 leading-loose mb-8">
+                    <p className="font-body text-sm text-charcoal/55 leading-loose mb-6">
                       {isAr
                         ? 'سيقرأ الذكاء الاصطناعي نمطك وألوانك ومساحاتك ويوصي بمجموعات إمداد المثالية في ~20 ثانية.'
                         : 'Our AI will read your style, colors, and space — then recommend the perfect EMDAD collections in ~20 seconds.'}
                     </p>
+
+                    {/* Category focus — analyze for one specific category, or let the AI decide */}
+                    <p className="font-body text-[10px] tracking-[0.25em] uppercase text-charcoal/45 mb-3">
+                      {isAr ? 'ما الذي تبحث عنه؟' : 'What are you shopping for?'}
+                    </p>
+                    <div className="flex flex-wrap gap-2 mb-8">
+                      {[{ id: '', label: isAr ? 'دع الذكاء يقرّر' : 'Let AI decide' },
+                        ...categories.map((c) => ({ id: c.id, label: isAr ? (t.catNames[c.id] || c.title) : c.title }))
+                      ].map((opt) => {
+                        const active = chosenCat === opt.id
+                        return (
+                          <button key={opt.id || 'all'} type="button" onClick={() => setChosenCat(opt.id)}
+                            className="px-3.5 py-1.5 font-body text-xs tracking-wide transition-all duration-200"
+                            style={{
+                              background: active ? '#B8903C' : 'rgba(184,144,60,0.06)',
+                              color: active ? 'white' : 'rgba(28,25,23,0.7)',
+                              border: `1px solid ${active ? '#B8903C' : 'rgba(184,144,60,0.25)'}`,
+                            }}>
+                            {opt.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+
                     {status === 'error' && (
                       <div className="mb-5 p-4 font-body text-sm text-red-700" style={{ background:'rgba(220,38,38,0.06)', border:'1px solid rgba(220,38,38,0.2)' }}>
                         {errorMsg}
@@ -440,12 +468,29 @@ export default function RoomAnalyzer() {
               {(analysis.recommendations || []).length > 0 ? (
                 <div className="mb-4">
                   <p className="font-body text-[9px] tracking-[0.3em] uppercase mb-6" style={{ color:'#B8903C' }}>
-                    {isAr?`${analysis.recommendations.length} مجموعة موصى بها لغرفتك`:`${analysis.recommendations.length} EMDAD collections recommended for your room`}
+                    {focusCat
+                      ? (isAr
+                          ? `${analysis.recommendations.length} خيار من ${t.catNames[focusCat.id] || focusCat.title} لغرفتك`
+                          : `${analysis.recommendations.length} ${focusCat.title} options for your room`)
+                      : (isAr
+                          ? `${analysis.recommendations.length} مجموعة موصى بها لغرفتك`
+                          : `${analysis.recommendations.length} EMDAD collections recommended for your room`)}
                   </p>
                   <div className="space-y-4">
-                    {analysis.recommendations.map((rec, i) => (
-                      <RecommendationCard key={rec.categoryId} rec={rec} index={i} isAr={isAr} />
-                    ))}
+                    {analysis.recommendations.map((rec, i) => {
+                      // When the visitor focused on one category, show a different real
+                      // piece from that category per card, linking to its product page.
+                      let imageOverride, linkOverride
+                      if (focusCat && focusCat.images.length) {
+                        const im = focusCat.images[i % focusCat.images.length]
+                        imageOverride = im.src
+                        linkOverride = `/product?src=${encodeURIComponent(im.src)}`
+                      }
+                      return (
+                        <RecommendationCard key={i} rec={rec} index={i} isAr={isAr}
+                          imageOverride={imageOverride} linkOverride={linkOverride} />
+                      )
+                    })}
                   </div>
                 </div>
               ) : (

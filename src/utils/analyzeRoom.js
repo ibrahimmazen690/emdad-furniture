@@ -1,7 +1,7 @@
 // ── EMDAD Room Analyzer — API utility ────────────────────────────────────────
 // Converts image file to base64 and posts to the secure serverless proxy.
 
-export async function analyzeRoomImage(file, lang = 'en') {
+export async function analyzeRoomImage(file, lang = 'en', category = '') {
   // Validate file
   const validTypes = ['image/jpeg','image/jpg','image/png','image/webp']
   if (!validTypes.includes(file.type)) throw new Error('Please upload a JPEG, PNG, or WEBP image.')
@@ -16,7 +16,7 @@ export async function analyzeRoomImage(file, lang = 'en') {
     res = await fetch('/api/analyze-room', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64: base64, mediaType: file.type, lang }),
+      body: JSON.stringify({ imageBase64: base64, mediaType: file.type, lang, category }),
     })
   } catch (networkErr) {
     throw new Error(

@@ -220,6 +220,26 @@ const ANALYSIS_AR_DIRECTIVE = `
 LANGUAGE: The visitor is using the site in Arabic. Write EVERY human-readable text value in Modern Standard Arabic: "roomType", "style", every entry in "colorNames", "existingStrengths" and "opportunities", and for every recommendation its "categoryName", "reason" and "finishSuggestion", plus the "designerNote".
 Do NOT translate these machine fields — output them EXACTLY as the English tokens defined above: every "categoryId", and the enum values for "urgency" (essential | recommended | optional), "lightLevel" (Low | Medium | High) and "roomSize" (Compact | Standard | Spacious). Keep all JSON keys and hex color codes in English. Still reply with ONLY the JSON object.`;
 
+// Display names for each categoryId (used to focus the analysis on one category).
+const CATEGORY_NAMES = {
+  "master-bedrooms": "Master Bedrooms",
+  "single-bedrooms": "Single Bedrooms",
+  "living-rooms": "Living Rooms",
+  "guest-room": "Guest Rooms",
+  kitchens: "Kitchens",
+  "dining-table": "Dining Tables",
+  "dressing-room": "Dressing Rooms",
+  "storage-room": "Storage Rooms",
+  landscape: "Outdoor & Landscape",
+  "tv-units": "TV Units",
+};
+
+// Appended when the visitor picked a specific category before analyzing, so every
+// recommendation is a distinct option within just that category.
+const focusDirective = (catId) => `
+
+FOCUS: The visitor is specifically interested in ${CATEGORY_NAMES[catId]} (categoryId "${catId}"). Return 3 to 5 recommendations and make EVERY recommendation use categoryId "${catId}" — do not recommend any other category. Each recommendation must be a DISTINCT option or style direction within ${CATEGORY_NAMES[catId]} that suits the photo, with a different "reason" and "finishSuggestion". Order them with the strongest fit first. Still analyze the whole photo for roomType, style, colors, and opportunities as usual.`;
+
 const EMDAD_SYSTEM = `You are Layla — the official AI assistant for EMDAD Wooden & Smart Furniture, a premium manufacturer in Azzarqa (Zarqa), Jordan, established 2023 with 160+ skilled professionals. You speak Arabic and English fluently, with warmth, brevity, and expertise.
 
 ABOUT EMDAD:
@@ -584,12 +604,18 @@ app.post("/api/analyze-room", async (req, res) => {
     });
   }
 
-  const { imageBase64, mediaType = "image/jpeg", lang = "en" } = req.body || {};
+  const {
+    imageBase64,
+    mediaType = "image/jpeg",
+    lang = "en",
+    category = "",
+  } = req.body || {};
   if (!imageBase64) {
     return res.status(400).json({ error: "imageBase64 is required" });
   }
-  const promptText =
-    lang === "ar" ? ANALYSIS_PROMPT + ANALYSIS_AR_DIRECTIVE : ANALYSIS_PROMPT;
+  let promptText = ANALYSIS_PROMPT;
+  if (CATEGORY_NAMES[category]) promptText += focusDirective(category);
+  if (lang === "ar") promptText += ANALYSIS_AR_DIRECTIVE;
 
   try {
     console.log("[EMDAD] Sending image to Claude Vision API…");
