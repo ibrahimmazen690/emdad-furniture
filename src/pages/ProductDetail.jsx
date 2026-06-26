@@ -57,6 +57,9 @@ export default function ProductDetail() {
 
   const catTitle = category ? (isAr ? (t.catNames[category.id] || category.title) : category.title) : ''
   const productTitle = image?.title || image?.alt || (isAr ? 'قطعة إمداد' : 'EMDAD Piece')
+  // Touch screens can't hover — we drive the zoom with pointer events so a finger
+  // drag works just like a mouse hover.
+  const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
 
   // Reset everything when the viewed piece changes; scroll to top.
   useEffect(() => {
@@ -151,10 +154,13 @@ export default function ProductDetail() {
           <div>
             <div
               ref={stageRef}
-              onMouseMove={onMove}
-              onMouseLeave={onLeave}
+              onPointerMove={onMove}
+              onPointerLeave={onLeave}
+              onPointerCancel={onLeave}
+              onPointerDown={(e) => { if (e.pointerType !== 'mouse') onMove(e) }}
+              onPointerUp={(e) => { if (e.pointerType !== 'mouse') onLeave() }}
               className="relative overflow-hidden cursor-zoom-in select-none"
-              style={{ aspectRatio: '4/3', background: '#1C1917', border: '1px solid rgba(184,144,60,0.18)' }}
+              style={{ aspectRatio: '4/3', background: '#1C1917', border: '1px solid rgba(184,144,60,0.18)', touchAction: 'none' }}
             >
               <img
                 src={image.src} alt={image.alt} draggable={false}
@@ -164,7 +170,7 @@ export default function ProductDetail() {
               {/* Hover-to-zoom hint */}
               <div className="absolute bottom-3 left-3 px-3 py-1.5 font-body text-[10px] tracking-widest uppercase pointer-events-none transition-opacity duration-300"
                 style={{ background: 'rgba(13,11,9,0.6)', backdropFilter: 'blur(6px)', color: '#D4AC5A', opacity: zoom.active ? 0 : 1 }}>
-                {isAr ? 'مرّر للتكبير' : 'Hover to zoom'}
+                {canHover ? (isAr ? 'مرّر للتكبير' : 'Hover to zoom') : (isAr ? 'المس واسحب للتكبير' : 'Touch & drag to zoom')}
               </div>
             </div>
 

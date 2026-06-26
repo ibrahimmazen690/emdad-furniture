@@ -381,13 +381,13 @@ export default function RoomAnalyzer() {
 
               {/* How it works */}
               {!preview && (
-                <div className="grid grid-cols-3 gap-4 mt-10">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-10">
                   {[
                     { icon:'📸', en:'Upload any room photo', ar:'ارفع أي صورة لغرفتك' },
                     { icon:'🧠', en:'AI reads style, colors & space', ar:'الذكاء الاصطناعي يقرأ النمط والألوان' },
                     { icon:'🛋️', en:'Get matched EMDAD collections', ar:'احصل على مجموعات إمداد المطابقة' },
                   ].map(s => (
-                    <div key={s.en} className="text-center p-5" style={{ border:'1px solid rgba(184,144,60,0.1)', background:'white' }}>
+                    <div key={s.en} className="text-center p-3 sm:p-5" style={{ border:'1px solid rgba(184,144,60,0.1)', background:'white' }}>
                       <span className="text-3xl block mb-3">{s.icon}</span>
                       <p className="font-body text-xs text-charcoal/60 leading-relaxed">{isAr?s.ar:s.en}</p>
                     </div>

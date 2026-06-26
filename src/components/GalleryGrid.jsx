@@ -20,7 +20,7 @@ export default function GalleryGrid({ images, category }) {
   }
 
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gridAutoRows:'200px' }}>
+    <div className="grid gap-3 grid-cols-2 [grid-auto-rows:160px] sm:[grid-template-columns:repeat(auto-fill,minmax(220px,1fr))] sm:[grid-auto-rows:200px]">
       {images.map((img, i) => (
         <motion.div
           key={img.src} initial={{ opacity:0, scale:0.95 }} whileInView={{ opacity:1, scale:1 }}
