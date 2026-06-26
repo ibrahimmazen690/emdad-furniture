@@ -225,6 +225,25 @@ export default function Navbar() {
                   </Link>
                 </motion.div>
               ))}
+
+              {/* Client Portal */}
+              <motion.div
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: navLinks.length * 0.07, duration: 0.4 }}
+              >
+                <Link
+                  to="/portal"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2.5 font-display text-3xl font-300 text-white hover:text-yellow-400 transition-colors duration-300"
+                >
+                  <svg className="w-6 h-6 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  {t.nav.portal || "Portal"}
+                </Link>
+              </motion.div>
+
               <div className="flex gap-4 mt-4">
                 <button
                   onClick={() => {
