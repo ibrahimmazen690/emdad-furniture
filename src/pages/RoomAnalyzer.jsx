@@ -269,7 +269,7 @@ export default function RoomAnalyzer() {
     const msg = isAr
       ? `مرحباً إمداد،\n\nاستخدمت محلل الغرف بالذكاء الاصطناعي وحصلت على التوصيات التالية:\n\n🏠 نوع الغرفة: ${analysis.roomType}\n✨ النمط: ${analysis.style}\n\nالمجموعات الموصى بها:\n${recs}\n\nملاحظة المصمم: ${analysis.designerNote}\n\nهل يمكنكم مساعدتي في استكشاف هذه الخيارات؟`
       : `Hello EMDAD,\n\nI used your AI Room Analyzer and received these recommendations:\n\n🏠 Room Type: ${analysis.roomType}\n✨ Style: ${analysis.style}\n💡 Light: ${analysis.lightLevel}\n\nRecommended collections:\n${recs}\n\nDesigner's note: ${analysis.designerNote}\n\nCould you help me explore these options?`
-    return `https://wa.me/962779989944?text=${encodeURIComponent(msg)}`
+    return `https://wa.me/962790840538?text=${encodeURIComponent(msg)}`
   }
 
   return (

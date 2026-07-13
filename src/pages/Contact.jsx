@@ -49,7 +49,7 @@ export default function Contact() {
         </svg>
       ),
       label: t.contactInfo.callLabel,
-      lines: ['+962-779989944'],
+      lines: ['+962-790840538'],
     },
     {
       icon: (
@@ -58,7 +58,7 @@ export default function Contact() {
         </svg>
       ),
       label: t.contactInfo.emailLabel,
-      lines: ['Info@emdadgrp.com'],
+      lines: ['emdad-sofex@emdadgrp.com'],
     },
     {
       icon: (

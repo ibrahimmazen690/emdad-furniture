@@ -127,7 +127,7 @@ function AppContent() {
         {/* WhatsApp Float Button — hidden on standalone pages */}
         {!isStandalone && (
           <motion.a
-            href="https://wa.me/962779989944?text=Hello%20EMDAD%2C%20I%27d%20like%20to%20inquire%20about%20your%20furniture."
+            href="https://wa.me/962790840538?text=Hello%20EMDAD%2C%20I%27d%20like%20to%20inquire%20about%20your%20furniture."
             target="_blank"
             rel="noopener noreferrer"
             initial={{ scale: 0 }}

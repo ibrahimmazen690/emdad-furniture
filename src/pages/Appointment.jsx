@@ -147,7 +147,7 @@ export default function Appointment() {
     const msg = isAr
       ? `مرحباً إمداد،\nأرغب في تأكيد موعد زيارة المعرض:\n📅 التاريخ: ${selectedDate ? formatDate(selectedDate, true) : ''}\n🕐 الوقت: ${selectedTime}\n👤 الاسم: ${form.name}\n📞 الهاتف: ${form.phone}\n🏠 نوع المشروع: ${form.type}\nشكراً!`
       : `Hello EMDAD,\nI'd like to confirm my showroom visit:\n📅 Date: ${selectedDate ? formatDate(selectedDate, false) : ''}\n🕐 Time: ${selectedTime}\n👤 Name: ${form.name}\n📞 Phone: ${form.phone}\n🏠 Project: ${form.type}\nThank you!`
-    window.open(`https://wa.me/962779989944?text=${encodeURIComponent(msg)}`, '_blank')
+    window.open(`https://wa.me/962790840538?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
   const slideDir = { initial: { opacity:0, x: isAr ? -30 : 30 }, animate: { opacity:1, x:0 }, exit: { opacity:0, x: isAr ? 30 : -30 } }

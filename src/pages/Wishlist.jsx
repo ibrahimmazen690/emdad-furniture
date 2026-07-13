@@ -13,7 +13,7 @@ export default function Wishlist() {
       .map((i) => i.title || i.alt || "EMDAD Piece")
       .join("\n- ");
     window.open(
-      `https://wa.me/962779989944?text=${encodeURIComponent(`Hello EMDAD, I'm interested in the following pieces from my wishlist:\n${names}\n\nCould you provide more details?`)}`,
+      `https://wa.me/962790840538?text=${encodeURIComponent(`Hello EMDAD, I'm interested in the following pieces from my wishlist:\n${names}\n\nCould you provide more details?`)}`,
       "_blank",
     );
   };

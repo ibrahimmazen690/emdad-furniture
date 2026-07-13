@@ -52,11 +52,11 @@ export default function Footer() {
             <p className="font-body text-xs text-white/30 mb-6">Zarqa — Jordan · Est. 2023</p>
 
             <div className="space-y-2 mb-8">
-              <a href="tel:+962779989944" className="flex items-center gap-2 font-body text-xs text-white/45 hover:text-yellow-400 transition-colors">
-                <span style={{ color: '#B8903C' }}>✆</span> +962-779989944
+              <a href="tel:+962790840538" className="flex items-center gap-2 font-body text-xs text-white/45 hover:text-yellow-400 transition-colors">
+                <span style={{ color: '#B8903C' }}>✆</span> +962-790840538
               </a>
-              <a href="mailto:Info@emdadgrp.com" className="flex items-center gap-2 font-body text-xs text-white/45 hover:text-yellow-400 transition-colors">
-                <span style={{ color: '#B8903C' }}>✉</span> Info@emdadgrp.com
+              <a href="mailto:emdad-sofex@emdadgrp.com" className="flex items-center gap-2 font-body text-xs text-white/45 hover:text-yellow-400 transition-colors">
+                <span style={{ color: '#B8903C' }}>✉</span> emdad-sofex@emdadgrp.com
               </a>
               <a href="https://emdadgrp.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 font-body text-xs text-white/45 hover:text-yellow-400 transition-colors">
                 <span style={{ color: '#B8903C' }}>🌐</span> emdadgrp.com

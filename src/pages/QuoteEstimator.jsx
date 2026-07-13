@@ -56,7 +56,7 @@ export default function QuoteEstimator() {
     const msg = isAr
       ? `مرحباً إمداد،\nأود الحصول على عرض سعر لمشروع:\n- النوع: ${projLabel}\n- الغرف: ${roomList}\n- جودة المواد: ${tierLabel}`
       : `Hello EMDAD,\nI'd like a quote for:\n- Project type: ${projLabel}\n- Spaces: ${roomList}\n- Material quality: ${tierLabel}`
-    window.open(`https://wa.me/962779989944?text=${encodeURIComponent(msg)}`, '_blank')
+    window.open(`https://wa.me/962790840538?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
   const submitQuote = async (e) => {
