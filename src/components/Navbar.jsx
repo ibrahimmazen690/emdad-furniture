@@ -15,6 +15,7 @@ export default function Navbar() {
     { path: "/", label: t.nav.home },
     { path: "/#categories", label: t.nav.categories },
     { path: "/collections", label: t.nav.collections },
+    { path: "/events", label: t.nav.events },
     { path: "/about", label: t.nav.about },
     { path: "/ar", label: t.nav.ar },
     { path: "/contact", label: t.nav.contact },

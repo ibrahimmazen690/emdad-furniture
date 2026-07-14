@@ -12,6 +12,7 @@ export const en = {
     timeline: "Timeline",
     portal: "Portal",
     appointment: "Book a Visit",
+    events: "Event Planning",
   },
 
   // ── HOME ─────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import VoiceAvatar from "./components/VoiceAvatar";
 import Home from "./pages/Home";
 import Collections from "./pages/Collections";
 import ProductDetail from "./pages/ProductDetail";
+import EventPlanning from "./pages/EventPlanning";
 import About from "./pages/About";
 import ARPage from "./pages/AR";
 import Contact from "./pages/Contact";
@@ -107,6 +108,7 @@ function AppContent() {
                 <Route path="/" element={<Home />} />
                 <Route path="/collections" element={<Collections />} />
                 <Route path="/product" element={<ProductDetail />} />
+                <Route path="/events" element={<EventPlanning />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/ar" element={<ARPage />} />
                 <Route path="/contact" element={<Contact />} />
