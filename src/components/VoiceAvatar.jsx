@@ -28,6 +28,53 @@ async function askClaude(messages) {
   return { reply: data.reply || "", action: data.action || null };
 }
 
+// Streaming version — calls onDelta(partialText) as Layla types, so her answer
+// starts appearing almost immediately instead of after the whole reply is ready.
+// Falls back to the plain request if streaming isn't available.
+async function askClaudeStream(messages, onDelta) {
+  const res = await fetch("/api/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages }),
+  });
+  if (!res.ok || !res.body) throw new Error(`Chat error ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let reply = "";
+  let action = null;
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const chunk = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      const line = chunk.split("\n").find((l) => l.startsWith("data:"));
+      if (!line) continue;
+      let ev;
+      try {
+        ev = JSON.parse(line.slice(5).trim());
+      } catch {
+        continue;
+      }
+      if (ev.error) throw new Error(ev.error);
+      if (ev.delta) {
+        reply += ev.delta;
+        onDelta(reply);
+      }
+      if (ev.done) {
+        if (ev.reply) reply = ev.reply;
+        action = ev.action || null;
+      }
+    }
+  }
+  return { reply, action };
+}
+
 // ── Animated SVG Avatar Face ──────────────────────────────────────────────────
 function AvatarFace({ state, size = 120 }) {
   const mouthRef = useRef(null);
@@ -256,6 +303,7 @@ export default function VoiceAvatar() {
   const [history, setHistory] = useState([]);
   const [speechSupported, setSpeechSupported] = useState(true);
   const [textInput, setTextInput] = useState("");
+  const [streamingText, setStreamingText] = useState(""); // live reply as she types
   const [voices, setVoices] = useState([]);
 
   const recogRef = useRef(null);
@@ -394,7 +442,21 @@ export default function VoiceAvatar() {
       const newHistory = [...history, { role: "user", content: userText }];
 
       try {
-        const { reply, action } = await askClaude(newHistory);
+        // Stream so her answer appears as she types it; fall back to the plain
+        // request if the stream isn't available.
+        let reply, action;
+        setStreamingText("");
+        try {
+          ({ reply, action } = await askClaudeStream(newHistory, (partial) => {
+            const t = sanitizeSpeechText(partial);
+            setStreamingText(t);
+            setResponse(t);
+          }));
+        } catch (streamErr) {
+          console.warn("Stream unavailable, falling back:", streamErr?.message);
+          ({ reply, action } = await askClaude(newHistory));
+        }
+        setStreamingText("");
         const cleanReply = sanitizeSpeechText(reply);
         const updatedHistory = [
           ...newHistory,
@@ -749,7 +811,37 @@ export default function VoiceAvatar() {
                     </div>
                   );
                 })}
-                {state === "thinking" && (
+                {/* Live streaming reply — appears word by word as Layla types */}
+                {streamingText && (
+                  <div
+                    className={`flex items-end gap-2 ${voiceLang === "ar" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        boxShadow: "0 0 0 1px rgba(184,144,60,0.4)",
+                      }}
+                    >
+                      <AvatarFace state="speaking" size={28} />
+                    </div>
+                    <div
+                      className="max-w-[80%] px-4 py-2.5 text-[13px] font-body leading-relaxed"
+                      style={{
+                        background: "rgba(255,255,255,0.06)",
+                        color: "rgba(255,255,255,0.9)",
+                        border: "1px solid rgba(255,255,255,0.07)",
+                        borderRadius: 18,
+                      }}
+                    >
+                      {streamingText}
+                    </div>
+                  </div>
+                )}
+                {state === "thinking" && !streamingText && (
                   <div
                     className={`flex ${voiceLang === "ar" ? "justify-end" : "justify-start"}`}
                   >

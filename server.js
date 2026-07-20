@@ -345,6 +345,11 @@ const LAYLA_TOOLS = [
   },
 ];
 
+// Layla answers short concierge questions and calls simple tools, so she runs on
+// the fast model — Opus was several seconds slower for no benefit here. Override
+// with CHAT_MODEL if you ever want to trade speed for depth.
+const CHAT_MODEL = process.env.CHAT_MODEL || "claude-haiku-4-5-20251001";
+
 async function callClaude(body) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -358,6 +363,88 @@ async function callClaude(body) {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || `API ${res.status}`);
   return data;
+}
+
+// Streaming variant of callClaude. Calls onDelta(text) for every token as it
+// arrives and returns the fully reconstructed content blocks so the tool-use
+// loop can work exactly as it does in the non-streaming path.
+async function streamClaude(body, onDelta) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ ...body, stream: true }),
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`API ${res.status}: ${t.slice(0, 300)}`);
+  }
+
+  const blocks = [];
+  let stopReason = null;
+  let text = "";
+  let buf = "";
+  const decoder = new TextDecoder();
+  const reader = res.body.getReader();
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const chunk = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      const line = chunk.split("\n").find((l) => l.startsWith("data:"));
+      if (!line) continue;
+      let ev;
+      try {
+        ev = JSON.parse(line.slice(5).trim());
+      } catch {
+        continue;
+      }
+      if (ev.type === "content_block_start") {
+        const b = ev.content_block;
+        blocks[ev.index] =
+          b.type === "tool_use"
+            ? { type: "tool_use", id: b.id, name: b.name, _json: "" }
+            : { type: "text", text: "" };
+      } else if (ev.type === "content_block_delta") {
+        const b = blocks[ev.index];
+        if (!b) continue;
+        if (ev.delta.type === "text_delta") {
+          b.text += ev.delta.text;
+          text += ev.delta.text;
+          onDelta(ev.delta.text);
+        } else if (ev.delta.type === "input_json_delta") {
+          b._json += ev.delta.partial_json;
+        }
+      } else if (ev.type === "content_block_stop") {
+        const b = blocks[ev.index];
+        if (b && b.type === "tool_use") {
+          try {
+            b.input = JSON.parse(b._json || "{}");
+          } catch {
+            b.input = {};
+          }
+          delete b._json;
+        }
+      } else if (ev.type === "message_delta" && ev.delta?.stop_reason) {
+        stopReason = ev.delta.stop_reason;
+      }
+    }
+  }
+
+  const clean = blocks.filter(Boolean);
+  return {
+    text,
+    blocks: clean,
+    toolUses: clean.filter((b) => b.type === "tool_use"),
+    stopReason,
+  };
 }
 
 // ── Server ─────────────────────────────────────────────────────────────────────
@@ -513,9 +600,13 @@ app.post("/api/chat", async (req, res) => {
     // feed the results back until she produces a final spoken reply.
     for (let round = 0; round < 5; round++) {
       const data = await callClaude({
-        model: "claude-opus-4-6",
-        max_tokens: 600,
-        system: EMDAD_SYSTEM,
+        model: CHAT_MODEL,
+        max_tokens: 400, // replies are 1-3 spoken sentences
+        // Cache the (large, unchanging) persona + catalogue so repeat turns skip
+        // re-processing it.
+        system: [
+          { type: "text", text: EMDAD_SYSTEM, cache_control: { type: "ephemeral" } },
+        ],
         tools: LAYLA_TOOLS,
         messages: convo,
       });
@@ -595,6 +686,82 @@ function extractJson(raw) {
   };
   return tryParse(candidate) || tryParse(candidate.replace(/,(\s*[}\]])/g, "$1"));
 }
+
+// Streaming chat (Server-Sent Events). Same agentic tool loop as /api/chat, but
+// Layla's words are pushed to the browser as she generates them, so the visitor
+// sees a reply within a few hundred ms instead of waiting for the whole message.
+// /api/chat remains as a fallback.
+app.post("/api/chat/stream", async (req, res) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: "ANTHROPIC_API_KEY is not set." });
+  }
+  const { messages } = req.body || {};
+  if (!messages?.length) {
+    return res.status(400).json({ error: "messages required" });
+  }
+
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // don't let a proxy buffer the stream
+  res.flushHeaders?.();
+
+  const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+  try {
+    const convo = messages.map((m) => ({ role: m.role, content: m.content }));
+    let pendingAction = null;
+    let full = "";
+
+    for (let round = 0; round < 5; round++) {
+      const { text, blocks, toolUses, stopReason } = await streamClaude(
+        {
+          model: CHAT_MODEL,
+          max_tokens: 400,
+          system: [
+            { type: "text", text: EMDAD_SYSTEM, cache_control: { type: "ephemeral" } },
+          ],
+          tools: LAYLA_TOOLS,
+          messages: convo,
+        },
+        (delta) => {
+          full += delta;
+          send({ delta });
+        },
+      );
+
+      if (stopReason === "tool_use" && toolUses.length) {
+        convo.push({ role: "assistant", content: blocks });
+        const results = [];
+        for (const tu of toolUses) {
+          const out = await runLaylaTool(tu.name, tu.input || {}, req);
+          if (out.action) pendingAction = out.action;
+          results.push({
+            type: "tool_result",
+            tool_use_id: tu.id,
+            content: out.content,
+          });
+        }
+        convo.push({ role: "user", content: results });
+        // Keep a space between the text of this round and the next one.
+        if (full && !/\s$/.test(full)) {
+          full += " ";
+          send({ delta: " " });
+        }
+        continue;
+      }
+      void text;
+      break;
+    }
+
+    send({ done: true, reply: full, action: pendingAction });
+    res.end();
+  } catch (err) {
+    console.error("[EMDAD] Chat stream error:", err.message);
+    send({ error: err.message || "Unexpected server error" });
+    res.end();
+  }
+});
 
 // Room analysis endpoint
 app.post("/api/analyze-room", async (req, res) => {

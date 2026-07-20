@@ -9,6 +9,14 @@ export default defineConfig({
       "/api/chat": {
         target: "http://localhost:3001",
         changeOrigin: true,
+        configure: (proxy) => {
+          // don't buffer the SSE stream in dev
+          proxy.on("proxyRes", (proxyRes) => {
+            if ((proxyRes.headers["content-type"] || "").includes("event-stream")) {
+              proxyRes.headers["cache-control"] = "no-cache, no-transform";
+            }
+          });
+        },
       },
       "/api/analyze-room": {
         target: "http://localhost:3001",
